@@ -45,6 +45,8 @@ directly in each language without the use of translation (unlike MLQA and \
 XQuAD).
 
 For now, only the Gold passage (GoldP) task is available in TFDS.
+The "translate-train-*" splits consist of machine translations of the English data.
+This data was used for the translate-train baselines in the XTREME paper [https://arxiv.org/abs/2003.11080]
 """
 
 
@@ -61,6 +63,7 @@ LANGUAGES = {
 }
 
 _GOLD_URL_PREFIX = "https://storage.googleapis.com/tydiqa/v1.1/tydiqa-goldp-v1.1-"
+_GOLD_TRANSLATE_URL_FORMAT = "https://storage.googleapis.com/xtreme_translations/TyDiQA-GoldP/translate-train/tydiqa.translate.train.en-{lang_iso}.json"
 
 
 class TydiQAConfig(tfds.core.BuilderConfig):
@@ -96,6 +99,12 @@ class TydiQA(tfds.core.GeneratorBasedBuilder):
         "validation": _GOLD_URL_PREFIX + "dev.json",
         "lang-validation": _GOLD_URL_PREFIX + "dev.tgz",
     }
+    for lang_iso in LANGUAGES:
+      if lang_iso=='en':
+        continue
+      urls_to_download["translate-train-{lang_iso}".format(
+          lang_iso=lang_iso)] = _GOLD_TRANSLATE_URL_FORMAT.format(
+              lang_iso=lang_iso)
     downloaded_files = dl_manager.download_and_extract(urls_to_download)
 
     return [
@@ -114,6 +123,14 @@ class TydiQA(tfds.core.GeneratorBasedBuilder):
                              f"tydiqa-goldp-v1.1-dev/tydiqa-goldp-dev-{lang_name}.json")
             })
         for lang_iso, lang_name in LANGUAGES.items()
+    ] + [
+        tfds.core.SplitGenerator(  # pylint:disable=g-complex-comprehension
+            name="translate-train-{lang_iso}".format(
+          lang_iso=lang_iso),
+            gen_kwargs={
+                "filepath": downloaded_files["translate-train-{lang_iso}".format(lang_iso=lang_iso)]
+                })
+        for lang_iso, lang_name in LANGUAGES.items() if lang_iso!="en"
     ]
 
   def _generate_examples(self, filepath):
